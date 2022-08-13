@@ -276,13 +276,12 @@ dat.n$cluster=factor(dat.n$cluster, levels=c("UV-low","UV-high"))
 dat.n2 <- as.data.frame(table(dat.n$cluster,dat.n$Neoadjuvant.CTx.Hx))
 dat.n2$Var2=factor(dat.n2$Var2,levels=c("No","Yes"))
 ggplot(dat.n2, aes(fill=Var2, y=Freq, x=Var1)) +  geom_bar(position="fill", stat="identity",width = 0.7)+theme_classic() +theme(axis.title.x = element_blank(),axis.text= element_text(size = 15,face="bold",color="black"), axis.title.y = element_text(size=16, face="bold"))+ scale_y_continuous(breaks = scales::pretty_breaks(n = 4))  +ylab("Proportion") +  theme(legend.title =element_text(size = 16,face="bold"),legend.text = element_text(size=16), legend.position="right")+labs(fill="Neoadjuvant CTx")
-dat.n2
-chisq.test(matrix(c(6,41,69,350),nrow = 2, ncol = 2))
+chisq.test(matrix(c(6,69,19,372),nrow = 2, ncol = 2))
 
 dat.n2 <- as.data.frame(table(dat.n$cluster,dat.n$Primary.tumor.diagnosed))
 dat.n2$Var2=factor(dat.n2$Var2,levels=c("No","Yes"))
 ggplot(dat.n2, aes(fill=Var2, y=Freq, x=Var1)) +  geom_bar(position="fill", stat="identity",width = 0.7)+theme_classic() +theme(axis.title.x = element_blank(),axis.text= element_text(size = 15,face="bold",color="black"), axis.title.y = element_text(size=16, face="bold"))+ scale_y_continuous(breaks = scales::pretty_breaks(n = 4))  +ylab("Proportion") +  theme(legend.title =element_text(size = 16,face="bold"),legend.text = element_text(size=16), legend.position="right")+labs(fill="Primary tumor")
-chisq.test(matrix(c(69,372,6,19),nrow = 2, ncol = 2))
+chisq.test(matrix(c(6,69,41,350),nrow = 2, ncol = 2))
 
 ###NMF decomposition of SRA dataset
 setwd("/data/Delta_data4/kysbbubbu/Frontier_TCGA/03_Validation")
@@ -638,18 +637,26 @@ pheatmap(dat.n,cluster_cols=FALSE, show_rownames=TRUE,show_colnames=FALSE,cluste
 ####Figure2B
 setwd("/data/Delta_data4/kysbbubbu/Frontier_TCGA")
 dat.n=read.table("Sample_annotation.txt", sep="\t", row.names=1, header=TRUE)
+dat.n=dat.n[dat.n$age!="N/A",]
 dat.n$age=as.numeric(as.character(dat.n$age))
 dat.n$cluster=factor(dat.n$cluster, levels= c("UV-low","UV-high"))
 ggboxplot(dat.n, x = "cluster", y = "age",color = "cluster", palette =c("#0000FF","#FF0000"),  add = "jitter", shape = "cluster",outlier.shape = NA)+  theme_classic() +theme(axis.text = element_text(color="black",size = 16,face="bold"),axis.title.x = element_blank(),axis.title.y = element_text( size=16, face="bold"))+ylab("Age (years)")+ theme(legend.position = "none") 
+wilcox.test(age ~ cluster, data = dat.n)
 
 setwd("/data/Delta_data4/kysbbubbu/Frontier_TCGA")
 dat.n=read.table("Sample_annotation.txt", sep="\t", row.names=1, header=TRUE)
 dat.n$cluster=factor(dat.n$cluster, levels= c("UV-low","UV-high"))
 dat.n2=dat.n[dat.n$age!="N/A",]
 dat.n2$age=as.numeric(as.character(dat.n2$age))
+dat.n3=dat.n2[dat.n2$cluster=="UV-low",]
+table(dat.n3$age>40)
+dat.n3=dat.n2[dat.n2$cluster=="UV-high",]
+table(dat.n3$age>40)
+chisq.test(matrix(c(4,70,56,328),nrow = 2, ncol = 2))#age>40
+
+
 mu <- ddply(dat.n2, "cluster", summarise, grp.mean=mean(age))
 dat.n2$cluster=factor(dat.n2$cluster, levels= c("UV-low","UV-high"))
-colnames(dat.n2)
 
 ####Figure2C
 dat.n3=dat.n2[dat.n2$cluster=="UV-low",]
@@ -751,7 +758,7 @@ ggforest(fit.coxph2, data = dat.n3,fontsize	=1, refLabel="REF",noDigits	=3)
 ###Multivariate analysis of overall survival 
 #table 1
 covariate_names <- c(cluster="cluster",age="age",Mutation_type="Mutation_cluster2",Stage="stage",sex="sex")
-result=analyse_multivariate(dat.n3, vars(futime, fustat),covariates = vars(cluster, age, sex, Mutation_cluster2, stage), covariate_name_dict = covariate_names)
+result=analyse_multivariate(dat.n3, vars(futime, fustat),covariates = vars(cluster, age, Mutation_cluster2, stage, sex), covariate_name_dict = covariate_names)
 forest_plot(result, factor_labeller = covariate_names,  endpoint_labeller = c(futime="OS"),  orderer = ~order(HR),  labels_displayed = c("endpoint", "factor"),    ggtheme = ggplot2::theme_bw(base_size = 12))
 
 #Landmark Survival analysis: TCGA dataset
@@ -763,29 +770,32 @@ median(dat.n2$futime)
 dat.n2=dat.n2[dat.n2$futime>=365,]
 dat.n3 = dat.n2 %>%  mutate(lm_futime = futime - 365)
 lm_fit <- survfit(Surv(dat.n3$lm_futime,  dat.n3$fustat) ~ cluster, data = dat.n3)
-fit.coxph=coxph(Surv(dat.n2$futime,  dat.n2$fustat) ~ cluster, subset = futime >= 365,  data = dat.n2)
 #Figure 1c
-ggforest(fit.coxph, data = dat.n3,fontsize	=1, refLabel="REF",noDigits	=3)
 ggsurvplot(lm_fit, data = dat.n3, pval = F, xlim = c(0,3650), legend.labs=c("UV-high", "UV-low"),xscale=365, break.x.by=730,xlab="Years",palette =c("#FF0000","#0000FF"),conf.int = TRUE, ggtheme =theme_bw() +theme(axis.text.x = element_text(size = 14,face="bold"),axis.text.y = element_text(size = 14, face="bold"), axis.title.x = element_text(size = 17,face="bold"),axis.title.y = element_text(size=17, face="bold"),legend.title=element_blank(),legend.text=element_text(size=14)))
 ggsurvplot(lm_fit, data = dat.n3, pval = F, xlim = c(0,3650), legend.labs=c("UV-high", "UV-low"),xscale=365, break.x.by=730,xlab="Years",palette =c("#FF0000","#0000FF"),conf.int = TRUE,risk.table=T, ggtheme =theme_bw() +theme(axis.text.x = element_text(size = 14,face="bold"),axis.text.y = element_text(size = 14, face="bold"), axis.title.x = element_text(size = 17,face="bold"),axis.title.y = element_text(size=17, face="bold"),legend.title=element_blank(),legend.text=element_text(size=14)))
 
+
 ###Univariate analysis of landmark Survival at 1-year
-surv_object=Surv(dat.n2$futime,  dat.n2$fustat)
-fit.coxph <- coxph(surv_object ~ cluster, subset = futime >= 365,  data = dat.n2)
-ggforest(fit.coxph, data = dat.n,fontsize	=1, refLabel="REF",noDigits	=3)
-fit.coxph <- coxph(surv_object ~  age, subset = futime >= 365,  data = dat.n2)
-ggforest(fit.coxph, data = dat.n2,fontsize	=1, refLabel="REF",noDigits	=3)
+surv_object=Surv(dat.n3$lm_futime,  dat.n3$fustat)
+fit.coxph <- coxph(surv_object ~ cluster,  data = dat.n3)
+ggforest(fit.coxph, data = dat.n3,fontsize	=1, refLabel="REF",noDigits	=3)
+
+fit.coxph <- coxph(surv_object ~  age, data = dat.n2)
+ggforest(fit.coxph, data = dat.n3,fontsize	=1, refLabel="REF",noDigits	=3)
+
 fit.coxph <- coxph(surv_object ~  Mutation_cluster2,  subset = futime >= 365, data = dat.n2)
-ggforest(fit.coxph, data = dat.n,fontsize	=1, refLabel="REF",noDigits	=3)
-fit.coxph <- coxph(surv_object ~  sex,  subset = futime >= 365, data = dat.n2)
-ggforest(fit.coxph, data = dat.n,fontsize	=1, refLabel="REF",noDigits	=3)
-dat.n3= dat.n2[dat.n2$stage!=c("N/A"),]
-fit.coxph2 <- coxph(Surv(time = dat.n3$futime, event = dat.n3$fustat) ~  stage, data = dat.n3,  subset = futime >= 365)
-ggforest(fit.coxph2, data = dat.n3,fontsize	=1, refLabel="REF",noDigits	=3)
+ggforest(fit.coxph, data = dat.n3,fontsize	=1, refLabel="REF",noDigits	=3)
+
+fit.coxph <- coxph(surv_object ~  sex, data = dat.n2)
+ggforest(fit.coxph, data = dat.n3,fontsize	=1, refLabel="REF",noDigits	=3)
+
+dat.n4= dat.n3[dat.n2$stage!=c("N/A"),]
+fit.coxph <- coxph(Surv(time = dat.n4$lm_futime, event = dat.n4$fustat) ~  stage, data = dat.n4)
+ggforest(fit.coxph, data = dat.n4,fontsize	=1, refLabel="REF",noDigits	=3)
 
 ###Multivariate analysis of landmark Survival at 1-year
 covariate_names <- c(cluster="cluster",age="age",Mutation_type="Mutation_cluster2",Stage="stage",sex="sex")
-result=analyse_multivariate(dat.n3, vars(futime, fustat),covariates = vars(cluster, age, Mutation_cluster2, stage), covariate_name_dict = covariate_names)
+result=analyse_multivariate(dat.n4, vars(lm_futime, fustat),covariates = vars(cluster, age, Mutation_cluster2, stage,sex), covariate_name_dict = covariate_names)
 forest_plot(result, factor_labeller = covariate_names,  endpoint_labeller = c(futime="OS"),  orderer = ~order(HR),  labels_displayed = c("endpoint", "factor"),    ggtheme = ggplot2::theme_bw(base_size = 12))
 
 #overall survival analysis of ICGC cohort 
@@ -799,22 +809,24 @@ table(dat.n2$NMF_cluster)
 #Figure 3b
 ggsurvplot(fit1, data = dat.n2, pval = FALSE, xlim = c(0,3650), legend.labs=c("UV-high", "UV-low"),xscale=365, break.x.by=730,xlab="Years",palette =c("#FF0000","#0000FF"),conf.int = TRUE, risk.table	=F,ggtheme =theme_bw() +theme(axis.text.x = element_text(size = 14,face="bold"),axis.text.y = element_text(size = 14, face="bold"), axis.title.x = element_text(size = 17,face="bold"),axis.title.y = element_text(size=17, face="bold"),legend.title=element_blank(),legend.text=element_text(size=14)))
 ggsurvplot(fit1, data = dat.n2, pval = FALSE, xlim = c(0,3650), legend.labs=c("UV-high", "UV-low"),xscale=365, break.x.by=730,xlab="Years",palette =c("#FF0000","#0000FF"),conf.int = TRUE, risk.table	=T,ggtheme =theme_bw() +theme(axis.text.x = element_text(size = 14,face="bold"),axis.text.y = element_text(size = 14, face="bold"), axis.title.x = element_text(size = 17,face="bold"),axis.title.y = element_text(size=17, face="bold"),legend.title=element_blank(),legend.text=element_text(size=14)))
-###Univariate analysis of overall survival 
+###calculate HR
 fit.coxph <- coxph(surv_object ~  NMF_cluster, data = dat.n2)
 ggforest(fit.coxph, data = dat.n2,fontsize	=1, refLabel="REF",noDigits	=3)
 
 #Landmark Survival analysis: ICGC dataset
 dat.n = read.table("ICGC_annotation.txt", header=T, sep="\t", check.names=FALSE, stringsAsFactors=FALSE,row.names=1)
 dat.n2=dat.n[complete.cases(dat.n$fustat),]
-median(dat.n2$futime)
 dat.n2=dat.n2[dat.n2$futime>=365,]
-dat.n3 = dat.n2 %>%  mutate(lm_futime = futime - 365)
+dat.n3 = dat.n2 %>% mutate(lm_futime = futime - 365)
 lm_fit <- survfit(Surv(dat.n3$lm_futime,  dat.n3$fustat) ~ NMF_cluster, data = dat.n3)
-fit.coxph=coxph(Surv(dat.n2$futime,  dat.n2$fustat) ~ NMF_cluster, subset = futime >= 365,  data = dat.n2) 
-ggforest(fit.coxph, data = dat.n3,fontsize	=1, refLabel="REF",noDigits	=3)
+
 #Figure 3d
 ggsurvplot(lm_fit, data = dat.n3, pval = F, xlim = c(0,3650), legend.labs=c("UV-high", "UV-low"),xscale=365, break.x.by=730,xlab="Years",palette =c("#FF0000","#0000FF"),conf.int = TRUE, ggtheme =theme_bw() +theme(axis.text.x = element_text(size = 14,face="bold"),axis.text.y = element_text(size = 14, face="bold"), axis.title.x = element_text(size = 17,face="bold"),axis.title.y = element_text(size=17, face="bold"),legend.title=element_blank(),legend.text=element_text(size=14)))
 ggsurvplot(lm_fit, data = dat.n3, pval = F, xlim = c(0,3650), legend.labs=c("UV-high", "UV-low"),xscale=365, break.x.by=730,xlab="Years",palette =c("#FF0000","#0000FF"),conf.int = TRUE, risk.table	=T,ggtheme =theme_bw() +theme(axis.text.x = element_text(size = 14,face="bold"),axis.text.y = element_text(size = 14, face="bold"), axis.title.x = element_text(size = 17,face="bold"),axis.title.y = element_text(size=17, face="bold"),legend.title=element_blank(),legend.text=element_text(size=14)))
+
+#calculate HR
+fit.coxph=coxph(Surv(dat.n3$lm_futime,  dat.n3$fustat) ~ NMF_cluster, data = dat.n3) 
+ggforest(fit.coxph, data = dat.n3,fontsize	=1, refLabel="REF",noDigits	=3)
 
 #Supplementary Figure S10. Clinical significance of mutational signatures in TCGA cohort 
 #Figure S10a
@@ -825,21 +837,18 @@ dat.n3= dat.n2[dat.n2$stage==c("Stage I/II"),]
 dat.n3= dat.n2[dat.n2$stage==c("Stage III/IV"),]
 surv_object6 <- Surv(time = dat.n3$futime, event = dat.n3$fustat)
 fit6 <- survfit(surv_object6 ~ cluster, data = dat.n3)
-ggsurvplot(fit6, data = dat.n3, pval = FALSE, xlim = c(0,3650), legend.labs=c("UV-high", "UV-low"),xscale=365, break.x.by=730,xlab="Years",palette =c("#0000FF","#FF0000"),conf.int = TRUE, ggtheme =theme_bw() +theme(axis.text.x = element_text(size = 12,face="bold"),axis.text.y = element_text(size = 12, face="bold"), axis.title.x = element_text(size = 14,face="bold"),axis.title.y = element_text(size=14, face="bold"),legend.title=element_blank(),legend.text=element_text(size=14),legend.position="none"))
+ggsurvplot(fit6, data = dat.n3, pval = FALSE, xlim = c(0,3650), legend.labs=c("UV-high", "UV-low"),xscale=365, break.x.by=730,xlab="Years",palette =c("#FF0000","#0000FF"),conf.int = TRUE, ggtheme =theme_bw() +theme(axis.text.x = element_text(size = 12,face="bold"),axis.text.y = element_text(size = 12, face="bold"), axis.title.x = element_text(size = 14,face="bold"),axis.title.y = element_text(size=14, face="bold"),legend.title=element_blank(),legend.text=element_text(size=14),legend.position="none"))
 
 fit.coxph <- coxph(surv_object6 ~  cluster, data = dat.n3)
 ggforest(fit.coxph, data = dat.n3,fontsize	=1, refLabel="REF",noDigits	=3)
 
 dat.n = read.table("survival_excluded.csv", header=T, sep=",", check.names=FALSE, stringsAsFactors=FALSE,row.names=1)
 dat.n2=dat.n[dat.n$age_binary==c("Age > 40"),]
-dat.n2=dat.n[dat.n$age_binary==c("Age < 40"),]
 dat.n2=dat.n[dat.n$Mutation_cluster2==c("BRAF"),]
 dat.n2=dat.n[dat.n$Mutation_cluster2==c("Non-BRAF"),]
-dat.n2=dat.n[dat.n$sex==c("female"),]
-dat.n2=dat.n[dat.n$sex==c("male"),]
 surv_object6 <- Surv(time = dat.n2$futime, event = dat.n2$fustat)
 fit6 <- survfit(surv_object6 ~ cluster, data = dat.n2)
-ggsurvplot(fit6, data = dat.n2, pval = FALSE, xlim = c(0,3650), legend.labs=c("UV-high", "UV-low"),xscale=365, break.x.by=730,xlab="Years",palette =c("#0000FF","#FF0000"),conf.int = TRUE, ggtheme =theme_bw() +theme(axis.text.x = element_text(size = 12,face="bold"),axis.text.y = element_text(size = 12, face="bold"), axis.title.x = element_text(size = 14,face="bold"),axis.title.y = element_text(size=14, face="bold"),legend.title=element_blank(),legend.text=element_text(size=14)))
+ggsurvplot(fit6, data = dat.n2, pval = FALSE, xlim = c(0,3650), legend.labs=c("UV-high", "UV-low"),xscale=365, break.x.by=730,xlab="Years",palette =c("#FF0000","#0000FF"),conf.int = TRUE, ggtheme =theme_bw() +theme(axis.text.x = element_text(size = 12,face="bold"),axis.text.y = element_text(size = 12, face="bold"), axis.title.x = element_text(size = 14,face="bold"),axis.title.y = element_text(size=14, face="bold"),legend.title=element_blank(),legend.text=element_text(size=14)))
 fit.coxph <- coxph(surv_object6 ~  cluster, data = dat.n2)
 ggforest(fit.coxph, data = dat.n2,fontsize	=1, refLabel="REF",noDigits	=3)
 
@@ -888,17 +897,22 @@ oncoplot(subsetMaf(laml2, tsb = MAF_annot2$Tumor_Sample_Barcode, query="Variant_
 
 #Figure 4b
 df2 <- data.frame(supp=rep(c("BRAF", "RAS", "NF1", "Triple WT","KIT"), 2),
-                  dose=rep(c("UV-low", "UV"),each=5),
+                  dose=rep(c("UV-low", "UV-high"),each=5),
                   len=c(22.7,13.3,5.3,58.7,12.0,48.2,29.5,9.5,12.8,2.6))
-##UV-low 75:BRAF 17 RAS 10 NF1 4 TWT 44 KIT 9
-##UV-high 390: BRAF 188 RAS 115 NF1 37 TWT 50 KIT10
+##UV-low 75:BRAF 17 RAS 10 NF1 4 TWT 44 (KIT 9)
+##UV-high 390: BRAF 188 RAS 115 NF1 37 TWT 50 (KIT10)
 df2$dose=factor(df2$dose,levels=c("UV-low","UV-high"))
 df2$supp=factor(df2$supp,levels=c("BRAF", "RAS", "NF1", "Triple WT","KIT"))
 
 ggplot(data=df2, aes(x=supp, y=len, fill=dose)) + geom_bar(stat="identity", position=position_dodge())+  geom_text(aes(label=len), vjust=1.2, color="white", position = position_dodge(0.9), size=5)+  scale_fill_manual(values=c("#0000FF","#FF0000"))+  theme_classic() +theme(axis.text = element_text( size = 14,face="bold",color="black"), axis.title.x = element_blank(),axis.title.y = element_text( size=16, face="bold"))+ylab("Proportion (%)")+ theme(legend.position = "none") 
+chisq.test(matrix(c(17,58,188,202),nrow = 2, ncol = 2))#BRAF
+chisq.test(matrix(c(10,65,115,275),nrow = 2, ncol = 2))#RAS
+chisq.test(matrix(c(4,71,37,353),nrow = 2, ncol = 2))#NF1
+chisq.test(matrix(c(44,31,50,340),nrow = 2, ncol = 2))#TWT
+chisq.test(matrix(c(9,66,10,380),nrow = 2, ncol = 2))#KIT
 
 ##copy number alteration analysis
-setwd("/data/Delta_data4/kysbbubbu/Frontier_TCGA/05_DNA")
+setwd("/data/Delta_data4/kysbbubbu/Frontier_TCGA")
 dat.n=read.table("Sample_annotation.txt", sep="\t", row.names=1, header=TRUE)
 dat.n$cluster=factor(dat.n$cluster, levels= c("UV-low","UV-high"))
 
@@ -962,17 +976,17 @@ wilcox.test(purity ~ cluster, data = dat.n)
 ggboxplot(dat.n, x = "cluster", y = "Leukocyte",color = "cluster", palette =c("#0000FF","#FF0000"),  add = "jitter", shape = "cluster",outlier.shape = NA) + theme_classic() +theme(axis.text.x = element_text(size = 16, face="bold",color="black"),axis.text.y = element_text(size = 14), axis.title.x = element_blank(),axis.title.y = element_text(size=16, face="bold"))+  theme(legend.position = "none")+ylab("Leukocyte fraction")+ theme(legend.position = "none")
 wilcox.test(Leukocyte ~ cluster, data = dat.n)
 
-dat.n2=dat.n[is.na(dat.n$CYT_score_RSEM)!=TRUE,]
+dat.n2=dat.n[dat.n$CYT_score_RSEM!="N/A",]
 dat.n2$CYT_score_RSEM=as.numeric(as.character(dat.n2$CYT_score_RSEM))
 ggboxplot(dat.n2, x = "cluster", y = "CYT_score_RSEM",color = "cluster", palette =c("#0000FF","#FF0000"),  add = "jitter", shape = "cluster",outlier.shape = NA) + theme_classic() +theme(axis.text.x = element_text(size = 16, face="bold",color="black"),axis.text.y = element_text(size = 14), axis.title.x = element_blank(),axis.title.y = element_text(size=16, face="bold"))+  theme(legend.position = "none")+ylab("CYT score (RSEM)")+ theme(legend.position = "none")+scale_y_continuous(trans='log10')
 wilcox.test(CYT_score_RSEM ~ cluster, data = dat.n2)
 
-dat.n2=dat.n[is.na(dat.n$TIL_percentage)!=TRUE,]
+dat.n2=dat.n[dat.n$TIL_percentage!="N/A",]
 dat.n2$TIL_percentage=as.numeric(as.character(dat.n2$TIL_percentage))
 ggboxplot(dat.n2, x = "cluster", y = "TIL_percentage",color = "cluster", palette =c("#0000FF","#FF0000"),  add = "jitter", shape = "cluster",outlier.shape = NA)+  theme_classic() +theme(axis.text.x = element_text(size = 16, face="bold",color="black"),axis.text.y = element_text(size = 14), axis.title.x = element_blank(),axis.title.y = element_text(size=16, face="bold"))+  theme(legend.position = "none")+ylab("Proportion of tumor infiltrating leukocytes")+theme(legend.position = "none")
 wilcox.test(TIL_percentage ~ cluster, data = dat.n2)
 
-dat.n2=dat.n[is.na(dat.n$TCR)!=TRUE,]
+dat.n2=dat.n[dat.n$TCR!="N/A",]
 dat.n2$TCR=as.numeric(as.character(dat.n2$TCR))
 ggboxplot(dat.n2, x = "cluster", y = "TCR",color = "cluster", palette =c("#0000FF","#FF0000"),  add = "jitter", shape = "cluster",outlier.shape = NA)+ theme_classic() +theme(axis.text.x = element_text(size = 16, face="bold",color="black"),axis.text.y = element_text(size = 14), axis.title.x = element_blank(),axis.title.y = element_text(size=16, face="bold"))+  theme(legend.position = "none")+  theme(legend.position = "none") +ylab("TCR richness")+ theme(legend.position = "none")+scale_y_continuous(trans='log10')
 wilcox.test(TCR ~ cluster, data = dat.n2)
